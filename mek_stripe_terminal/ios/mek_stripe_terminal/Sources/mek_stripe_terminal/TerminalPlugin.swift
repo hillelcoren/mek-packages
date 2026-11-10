@@ -264,8 +264,10 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
     
     func stopProcessPaymentIntent(operationId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        // Taken on the main thread, where the operation's completion also mutates the dictionary
+        let cancelable = self._processPaymentIntentCancellables.removeValue(forKey: operationId)
         handleResult(completion) {
-            try await self._processPaymentIntentCancellables.removeValue(forKey: operationId)?.cancel()
+            try await cancelable?.cancel()
         }
     }
 
@@ -312,8 +314,10 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
 
     func stopCollectPaymentMethod(operationId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        // Taken on the main thread, where the operation's completion also mutates the dictionary
+        let cancelable = self._collectPaymentMethodCancellables.removeValue(forKey: operationId)
         handleResult(completion) {
-            try await self._collectPaymentMethodCancellables.removeValue(forKey: operationId)?.cancel()
+            try await cancelable?.cancel()
         }
     }
 
@@ -348,8 +352,10 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
 
     func stopConfirmPaymentIntent(operationId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        // Taken on the main thread, where the operation's completion also mutates the dictionary
+        let cancelable = self._confirmPaymentIntentCancellables.removeValue(forKey: operationId)
         handleResult(completion) {
-            try await self._confirmPaymentIntentCancellables.removeValue(forKey: operationId)?.cancel()
+            try await cancelable?.cancel()
         }
     }
     
@@ -426,8 +432,10 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
     
     func stopProcessSetupIntent(operationId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        // Taken on the main thread, where the operation's completion also mutates the dictionary
+        let cancelable = self._cancelablesCollectSetupIntentPaymentMethod.removeValue(forKey: operationId)
         handleResult(completion) {
-            try await self._cancelablesCollectSetupIntentPaymentMethod.removeValue(forKey: operationId)?.cancel()
+            try await cancelable?.cancel()
         }
     }
     
@@ -491,8 +499,10 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
     
     func stopProcessRefund(operationId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        // Taken on the main thread, where the operation's completion also mutates the dictionary
+        let cancelable = self._cancelablesCollectRefundPaymentMethod.removeValue(forKey: operationId)
         handleResult(completion) {
-            try await self._cancelablesCollectRefundPaymentMethod.removeValue(forKey: operationId)?.cancel()
+            try await cancelable?.cancel()
         }
     }
 
