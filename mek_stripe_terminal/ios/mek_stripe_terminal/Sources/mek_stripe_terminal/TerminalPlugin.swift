@@ -14,14 +14,12 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     private let _binaryMessenger: FlutterBinaryMessenger
     private let _proximityReader: ProximityReaderPlugin
     private let _handlers: TerminalHandlersApi
-    private let _terminalDelegate: TerminalDelegatePlugin
     private let _discoveryDelegate: DiscoveryDelegatePlugin
 
     init(_ viewController: UIViewController?, _ binaryMessenger: FlutterBinaryMessenger) {
         self._binaryMessenger = binaryMessenger
         self._proximityReader = ProximityReaderPlugin(viewController)
         self._handlers = TerminalHandlersApi(binaryMessenger: binaryMessenger)
-        self._terminalDelegate = TerminalDelegatePlugin(_handlers)
         self._discoveryDelegate = DiscoveryDelegatePlugin()
         self._readerDelegate = ReaderDelegatePlugin(_handlers)
     }
@@ -33,7 +31,11 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
 
     public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
-        if (Terminal.isInitialized()) { self._clean() }
+        // Only the engine the terminal is bound to owns its state
+        if (TerminalDelegatePlugin.shared.handlers === self._handlers) {
+            TerminalDelegatePlugin.shared.handlers = nil
+            if (Terminal.isInitialized()) { self._clean() }
+        }
         
         if (TerminalPlugin.shared != self) { return; }
         
@@ -41,13 +43,17 @@ public class TerminalPlugin: NSObject, FlutterPlugin, TerminalPlatformApi {
     }
     
     func initialize(shouldPrintLogs: Bool) throws {
-        // If a hot restart is performed in flutter the terminal is already initialized but we need to clean it up
+        // The terminal outlives the engine, so its delegate always talks to the engine that initialized it last
+        TerminalDelegatePlugin.shared.handlers = self._handlers
+
+        // If a hot restart is performed in flutter, or the engine is re-created while the process survives,
+        // the terminal is already initialized but we need to clean it up
         if Terminal.isInitialized() {
             _clean()
             return
         }
         
-        Terminal.initWithTokenProvider(self._terminalDelegate, delegate: self._terminalDelegate)
+        Terminal.initWithTokenProvider(TerminalDelegatePlugin.shared, delegate: TerminalDelegatePlugin.shared)
         if (shouldPrintLogs) { Terminal.setLogListener { message in print(message) } }
     }
     

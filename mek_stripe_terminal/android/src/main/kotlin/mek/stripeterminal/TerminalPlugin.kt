@@ -85,7 +85,7 @@ class TerminalPlugin : FlutterPlugin, ActivityAware {
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        if (Terminal.isInitialized()) platform.clean()
+        platform.detach()
         if (handlerOwner === this) {
             TerminalPlatformApi.setUp(binding.binaryMessenger, null)
             handlerOwner = null
@@ -113,21 +113,31 @@ class TerminalPlatformPlugin(
     private val terminal: Terminal get() = Terminal.getInstance()
 
     override fun initialize(shouldPrintLogs: Boolean) {
-        // If a hot restart is performed in flutter the terminal is already initialized but we need to
-        // clean it up
+        // The terminal outlives the engine, so its delegate always talks to the engine that
+        // initialized it last
+        TerminalDelegatePlugin.handlers = handlers
+
+        // If a hot restart is performed in flutter, or the engine is re-created while the process
+        // survives, the terminal is already initialized but we need to clean it up
         if (Terminal.isInitialized()) {
             clean()
             return
         }
 
-        val delegate = TerminalDelegatePlugin(handlers)
         Terminal.init(
             applicationContext,
             if (shouldPrintLogs) LogLevel.VERBOSE else LogLevel.NONE,
-            delegate,
-            delegate,
+            TerminalDelegatePlugin,
+            TerminalDelegatePlugin,
             null
         )
+    }
+
+    internal fun detach() {
+        // Only the engine the terminal is bound to owns its state
+        if (TerminalDelegatePlugin.handlers !== handlers) return
+        TerminalDelegatePlugin.handlers = null
+        if (Terminal.isInitialized()) clean()
     }
 
     override fun clearCachedCredentials(): ClearCachedCredentialsResultApi {

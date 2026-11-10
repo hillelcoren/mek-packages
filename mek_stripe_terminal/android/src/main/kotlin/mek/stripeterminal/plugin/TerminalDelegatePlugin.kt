@@ -10,10 +10,21 @@ import com.stripe.stripeterminal.external.models.PaymentStatus
 import mek.stripeterminal.mappings.toApi
 import mek.stripeterminal.runOnMainThread
 
-class TerminalDelegatePlugin(private val _handlers: TerminalHandlersApi) :
-    ConnectionTokenProvider, TerminalListener {
+// The Terminal is a process-wide singleton that can be initialized only once, so it keeps this
+// delegate for as long as the process lives, while the Flutter engine that initialized it can be
+// destroyed and replaced (e.g. the activity is finished but the process survives).
+// The delegate is therefore shared and forwards to the handlers of the engine that called
+// `initialize` last, or fails fast when that engine has been detached.
+object TerminalDelegatePlugin : ConnectionTokenProvider, TerminalListener {
+    var handlers: TerminalHandlersApi? = null
+
     override fun fetchConnectionToken(callback: ConnectionTokenCallback) = runOnMainThread {
-        _handlers.requestConnectionToken{ result -> result.fold(
+        val handlers = handlers
+        if (handlers == null) {
+            callback.onFailure(ConnectionTokenException("No Flutter engine is attached to the Terminal"))
+            return@runOnMainThread
+        }
+        handlers.requestConnectionToken{ result -> result.fold(
             onSuccess = { token ->
                 callback.onSuccess(token)
             },
@@ -25,11 +36,11 @@ class TerminalDelegatePlugin(private val _handlers: TerminalHandlersApi) :
 
     // region Terminal listeners
     override fun onConnectionStatusChange(status: ConnectionStatus) = runOnMainThread {
-        _handlers.connectionStatusChange(status.toApi()) {}
+        handlers?.connectionStatusChange(status.toApi()) {}
     }
 
     override fun onPaymentStatusChange(status: PaymentStatus) = runOnMainThread {
-        _handlers.paymentStatusChange(status.toApi()) {}
+        handlers?.paymentStatusChange(status.toApi()) {}
     }
     // endregion
 }
